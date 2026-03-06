@@ -1,0 +1,105 @@
+name: Odoo Module Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libxml2-dev libxslt1-dev libldap2-dev libsasl2-dev \
+            libtiff5-dev libjpeg8-dev libopenjp2-7-dev zlib1g-dev \
+            libfreetype6-dev liblcms2-dev libwebp-dev libharfbuzz-dev \
+            libfribidi-dev libxcb1-dev libpq-dev \
+            postgresql-client node-less npm
+
+      - name: Clone Odoo 15 source
+        run: |
+          git clone --depth=1 --branch=15.0 \
+            https://github.com/odoo/odoo.git /opt/odoo
+
+      - name: Install Odoo 15 via pip
+        run: |
+          pip install --upgrade pip
+          pip install -r /opt/odoo/requirements.txt
+          pip install -e /opt/odoo
+
+      - name: Configure Odoo
+        run: |
+          mkdir -p /tmp/odoo-data
+          cat > /tmp/odoo.conf << EOF
+          [options]
+          db_host = localhost
+          db_port = 5432
+          db_user = odoo
+          db_password = odoo
+          addons_path = /opt/odoo/addons,${GITHUB_WORKSPACE}/addons
+          data_dir = /tmp/odoo-data
+          without_demo = all
+          EOF
+
+      - name: Initialize test database
+        run: |
+          PGPASSWORD=odoo createdb -h localhost -U odoo -p 5432 odoo_test
+          python /opt/odoo/odoo-bin \
+            -c /tmp/odoo.conf \
+            -d odoo_test \
+            -i base \
+            --without-demo=all \
+            --stop-after-init \
+            --log-level=warn
+
+      - name: Run fleet_tests module tests
+        run: |
+          python /opt/odoo/odoo-bin \
+            -c /tmp/odoo.conf \
+            -d odoo_test \
+            -i fleet_tests \
+            --without-demo=all \
+            --test-tags /fleet_tests \
+            --stop-after-init \
+            --log-level=test
+
+      - name: Run om_hospital module tests
+        run: |
+          python /opt/odoo/odoo-bin \
+            -c /tmp/odoo.conf \
+            -d odoo_test \
+            -i om_hospital \
+            --without-demo=all \
+            --test-tags /om_hospital \
+            --stop-after-init \
+            --log-level=test
