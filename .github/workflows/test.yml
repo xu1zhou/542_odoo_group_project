@@ -39,19 +39,27 @@ jobs:
 
       # Build the image that contains Python, system deps, and Odoo 15.
       # Nothing from this step is installed on the runner itself.
-      # The Dockerfile has no COPY of local files, so we can pipe it straight
-      # into docker build via stdin, bypassing both the snap AppArmor restriction
-      # on /opt/ and the PrivateTmp namespace mismatch that prevented writing a
-      # build context to /tmp.
+      # The Dockerfile has no COPY of local files, so we pipe it straight
+      # into docker build via stdin, bypassing both the snap AppArmor
+      # restriction on /opt/ and the PrivateTmp namespace mismatch.
       - name: Build Odoo CI image
         run: |
           sudo docker build -t odoo-ci - < "$GITHUB_WORKSPACE/.github/docker/Dockerfile"
 
-      # Write odoo.conf into the workspace so it can be bind-mounted into
-      # every container below without touching the runner's /tmp or /opt.
+      # snap Docker's AppArmor profile blocks bind-mounting from /opt/ (where
+      # $GITHUB_WORKSPACE lives).  Copy the workspace to $HOME, which snap
+      # allows via its /home/** rule.  The runner user owns $HOME, so no sudo
+      # is required.
+      - name: Stage workspace for Docker
+        run: |
+          rm -rf "$HOME/odoo-ci-workspace"
+          cp -r "$GITHUB_WORKSPACE/." "$HOME/odoo-ci-workspace/"
+
+      # Write odoo.conf into the staged workspace so it can be bind-mounted
+      # into every container below.
       - name: Configure Odoo
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/.odoo-data"
+          mkdir -p "$HOME/odoo-ci-workspace/.odoo-data"
           {
             echo '[options]'
             echo 'db_host = localhost'
@@ -61,7 +69,7 @@ jobs:
             echo "addons_path = /opt/odoo/addons,/workspace/addons"
             echo 'data_dir = /workspace/.odoo-data'
             echo 'without_demo = all'
-          } > "$GITHUB_WORKSPACE/odoo.conf"
+          } > "$HOME/odoo-ci-workspace/odoo.conf"
 
       # Initialise the test database entirely inside the container.
       # --network host lets the container reach the postgres service on localhost.
@@ -69,7 +77,7 @@ jobs:
         run: |
           sudo docker run --rm \
             --network host \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$HOME/odoo-ci-workspace:/workspace" \
             odoo-ci \
             sh -c "
               PGPASSWORD=odoo createdb -h localhost -U odoo -p 5432 odoo_test
@@ -86,7 +94,7 @@ jobs:
         run: |
           sudo docker run --rm \
             --network host \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$HOME/odoo-ci-workspace:/workspace" \
             odoo-ci \
             python /opt/odoo/odoo-bin \
               -c /workspace/odoo.conf \
@@ -101,7 +109,7 @@ jobs:
         run: |
           sudo docker run --rm \
             --network host \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$HOME/odoo-ci-workspace:/workspace" \
             odoo-ci \
             python /opt/odoo/odoo-bin \
               -c /workspace/odoo.conf \
@@ -114,4 +122,6 @@ jobs:
 
       - name: Stop Postgres
         if: always()
-        run: sudo docker rm -f postgres-ci || true
+        run: |
+          sudo docker rm -f postgres-ci || true
+          rm -rf "$HOME/odoo-ci-workspace"

@@ -17,6 +17,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # snap Docker's AppArmor profile blocks access to /opt/ (where the
+      # runner workspace lives).  Copy the addons directory to $HOME, which
+      # snap allows via its /home/** rule, so the Docker daemon can bind-mount
+      # it.  No sudo is needed here — the runner user owns $HOME.
+      - name: Stage addons for Docker
+        run: |
+          rm -rf "$HOME/odoo-ci-addons"
+          cp -r "$GITHUB_WORKSPACE/addons" "$HOME/odoo-ci-addons"
+
       # Bring up Postgres + Odoo using the project's docker-compose.yml.
       # All Python/Odoo setup stays inside Docker — the runner is untouched.
       # sudo is required because the self-hosted runner user is not in the
@@ -24,14 +33,14 @@ jobs:
       #
       # The runner service runs with PrivateTmp=yes (systemd), so its /tmp is
       # a private mount namespace that snap Docker processes cannot see.
-      # Writing the compose file to /tmp (even via sudo tee) therefore does not
-      # work. Instead, pipe the sed-modified compose content directly to each
-      # docker compose invocation via stdin (-f -) so no intermediate file is
-      # ever created.  A fixed project name (-p odoo-deploy-ci) is used so
-      # that all steps refer to the same compose project.
+      # We pipe the sed-modified compose content directly via stdin (-f -) so
+      # no intermediate file is ever created.  A fixed project name
+      # (-p odoo-deploy-ci) is used so that all steps refer to the same
+      # compose project.  The addons volume now points to $HOME/odoo-ci-addons
+      # (snap-accessible) instead of $GITHUB_WORKSPACE/addons (/opt/...).
       - name: Start services with Docker Compose
         run: |
-          sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
             "$GITHUB_WORKSPACE/docker-compose.yml" | \
             sudo docker compose -p odoo-deploy-ci -f - up -d
 
@@ -39,14 +48,14 @@ jobs:
       - name: Wait for Postgres to be healthy
         run: |
           for i in $(seq 1 30); do
-            sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+            sed "s|\./addons|$HOME/odoo-ci-addons|g" \
               "$GITHUB_WORKSPACE/docker-compose.yml" | \
               sudo docker compose -p odoo-deploy-ci -f - exec -T db \
                 pg_isready -U odoo && break
             echo "Waiting for Postgres... ($i/30)"
             sleep 3
           done
-          sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
             "$GITHUB_WORKSPACE/docker-compose.yml" | \
             sudo docker compose -p odoo-deploy-ci -f - exec -T db \
               pg_isready -U odoo
@@ -57,11 +66,11 @@ jobs:
       # starting a second one.
       - name: Initialize test database
         run: |
-          sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
             "$GITHUB_WORKSPACE/docker-compose.yml" | \
             sudo docker compose -p odoo-deploy-ci -f - exec -T db \
               createdb -U odoo odoo_test || true
-          sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
             "$GITHUB_WORKSPACE/docker-compose.yml" | \
             sudo docker compose -p odoo-deploy-ci -f - run --rm --no-deps \
               odoo \
@@ -84,6 +93,7 @@ jobs:
       - name: Stop services
         if: always()
         run: |
-          sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
             "$GITHUB_WORKSPACE/docker-compose.yml" | \
             sudo docker compose -p odoo-deploy-ci -f - down -v || true
+          rm -rf "$HOME/odoo-ci-addons"
