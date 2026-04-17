@@ -90,8 +90,11 @@ jobs:
           echo "Modules: fleet_tests, om_hospital"
           # Add deployment steps here (e.g. SSH deploy, Docker push, etc.)
 
-      - name: Stop services
-        if: always()
+      # On failure only: tear down the stack and remove the staging directory
+      # so resources are not left behind from a broken run.
+      # On success the containers are intentionally left running.
+      - name: Stop services (on failure)
+        if: failure()
         run: |
           sed "s|\./addons|$HOME/odoo-ci-addons|g" \
             "$GITHUB_WORKSPACE/docker-compose.yml" | \
