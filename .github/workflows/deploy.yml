@@ -29,7 +29,7 @@ jobs:
       - name: Prepare compose file
         run: |
           sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
-            "$GITHUB_WORKSPACE/docker-compose.yml" > /tmp/docker-compose.yml
+            "$GITHUB_WORKSPACE/docker-compose.yml" | sudo tee /tmp/docker-compose.yml > /dev/null
 
       - name: Start services with Docker Compose
         run: sudo docker compose -f /tmp/docker-compose.yml up -d

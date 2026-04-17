@@ -44,7 +44,7 @@ jobs:
       # context to /tmp so the snap client can read it, then build with sudo.
       - name: Build Odoo CI image
         run: |
-          cp -r "$GITHUB_WORKSPACE/.github/docker" /tmp/odoo-docker-context
+          sudo cp -r "$GITHUB_WORKSPACE/.github/docker" /tmp/odoo-docker-context
           sudo docker build -t odoo-ci /tmp/odoo-docker-context
 
       # Write odoo.conf into the workspace so it can be bind-mounted into
