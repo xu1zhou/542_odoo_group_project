@@ -10,35 +10,56 @@ jobs:
     permissions:
       contents: read
 
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: odoo
-          POSTGRES_PASSWORD: odoo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Start Postgres manually with sudo so the runner user's Docker group
+      # membership is not required. The GitHub Actions service-container
+      # mechanism needs the runner process itself to connect to Docker, which
+      # fails on this machine because the runner user is not in the docker
+      # group. Running the container in a step with sudo is the workaround.
+      - name: Start Postgres
+        run: |
+          # Remove any leftover container from a previous run.
+          sudo docker rm -f postgres-ci 2>/dev/null || true
+          sudo docker run -d --name postgres-ci \
+            -e POSTGRES_USER=odoo \
+            -e POSTGRES_PASSWORD=odoo \
+            -e POSTGRES_DB=postgres \
+            -p 5432:5432 \
+            postgres:13
+          # Wait until Postgres accepts connections.
+          for i in $(seq 1 30); do
+            sudo docker exec postgres-ci pg_isready -U odoo && break
+            echo "Waiting for Postgres... ($i/30)"
+            sleep 3
+          done
+          sudo docker exec postgres-ci pg_isready -U odoo
+
       # Build the image that contains Python, system deps, and Odoo 15.
       # Nothing from this step is installed on the runner itself.
+      # The Dockerfile has no COPY of local files, so we pipe it straight
+      # into docker build via stdin, bypassing both the snap AppArmor
+      # restriction on /opt/ and the PrivateTmp namespace mismatch.
       - name: Build Odoo CI image
-        run: docker build -t odoo-ci .github/docker
+        run: |
+          sudo docker build -t odoo-ci - < "$GITHUB_WORKSPACE/.github/docker/Dockerfile"
 
-      # Write odoo.conf into the workspace so it can be bind-mounted into
-      # every container below without touching the runner's /tmp or /opt.
+      # snap Docker's AppArmor profile blocks bind-mounting from /opt/ (where
+      # $GITHUB_WORKSPACE lives).  Copy the workspace to $HOME, which snap
+      # allows via its /home/** rule.  The runner user owns $HOME, so no sudo
+      # is required.
+      - name: Stage workspace for Docker
+        run: |
+          rm -rf "$HOME/odoo-ci-workspace"
+          cp -r "$GITHUB_WORKSPACE/." "$HOME/odoo-ci-workspace/"
+
+      # Write odoo.conf into the staged workspace so it can be bind-mounted
+      # into every container below.
       - name: Configure Odoo
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/.odoo-data"
+          mkdir -p "$HOME/odoo-ci-workspace/.odoo-data"
           {
             echo '[options]'
             echo 'db_host = localhost'
@@ -48,15 +69,15 @@ jobs:
             echo "addons_path = /opt/odoo/addons,/workspace/addons"
             echo 'data_dir = /workspace/.odoo-data'
             echo 'without_demo = all'
-          } > "$GITHUB_WORKSPACE/odoo.conf"
+          } > "$HOME/odoo-ci-workspace/odoo.conf"
 
       # Initialise the test database entirely inside the container.
       # --network host lets the container reach the postgres service on localhost.
       - name: Initialize test database
         run: |
-          docker run --rm \
+          sudo docker run --rm \
             --network host \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$HOME/odoo-ci-workspace:/workspace" \
             odoo-ci \
             sh -c "
               PGPASSWORD=odoo createdb -h localhost -U odoo -p 5432 odoo_test
@@ -71,9 +92,9 @@ jobs:
 
       - name: Run fleet_tests module tests
         run: |
-          docker run --rm \
+          sudo docker run --rm \
             --network host \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$HOME/odoo-ci-workspace:/workspace" \
             odoo-ci \
             python /opt/odoo/odoo-bin \
               -c /workspace/odoo.conf \
@@ -86,9 +107,9 @@ jobs:
 
       - name: Run om_hospital module tests
         run: |
-          docker run --rm \
+          sudo docker run --rm \
             --network host \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$HOME/odoo-ci-workspace:/workspace" \
             odoo-ci \
             python /opt/odoo/odoo-bin \
               -c /workspace/odoo.conf \
@@ -98,3 +119,9 @@ jobs:
               --test-tags /om_hospital \
               --stop-after-init \
               --log-level=test
+
+      - name: Stop Postgres
+        if: always()
+        run: |
+          sudo docker rm -f postgres-ci || true
+          rm -rf "$HOME/odoo-ci-workspace"

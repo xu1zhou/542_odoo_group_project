@@ -17,22 +17,48 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # snap Docker's AppArmor profile blocks access to /opt/ (where the
+      # runner workspace lives).  Copy the addons directory to $HOME, which
+      # snap allows via its /home/** rule, so the Docker daemon can bind-mount
+      # it.  No sudo is needed here — the runner user owns $HOME.
+      - name: Stage addons for Docker
+        run: |
+          rm -rf "$HOME/odoo-ci-addons"
+          cp -r "$GITHUB_WORKSPACE/addons" "$HOME/odoo-ci-addons"
+
       # Bring up Postgres + Odoo using the project's docker-compose.yml.
       # All Python/Odoo setup stays inside Docker — the runner is untouched.
       # sudo is required because the self-hosted runner user is not in the
-      # docker group. The -f flag explicitly points docker compose to the
-      # compose file so it is found regardless of the working directory.
+      # docker group.
+      #
+      # The runner service runs with PrivateTmp=yes (systemd), so its /tmp is
+      # a private mount namespace that snap Docker processes cannot see.
+      # We pipe the sed-modified compose content directly via stdin (-f -) so
+      # no intermediate file is ever created.  A fixed project name
+      # (-p odoo-deploy-ci) is used so that all steps refer to the same
+      # compose project.  The addons volume now points to $HOME/odoo-ci-addons
+      # (snap-accessible) instead of $GITHUB_WORKSPACE/addons (/opt/...).
       - name: Start services with Docker Compose
-        run: sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" up -d
+        run: |
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
+            "$GITHUB_WORKSPACE/docker-compose.yml" | \
+            sudo docker compose -p odoo-deploy-ci -f - up -d
 
       # Poll until Postgres inside the compose stack accepts connections.
       - name: Wait for Postgres to be healthy
         run: |
           for i in $(seq 1 30); do
-            sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" exec -T db pg_isready -U odoo && break
+            sed "s|\./addons|$HOME/odoo-ci-addons|g" \
+              "$GITHUB_WORKSPACE/docker-compose.yml" | \
+              sudo docker compose -p odoo-deploy-ci -f - exec -T db \
+                pg_isready -U odoo && break
             echo "Waiting for Postgres... ($i/30)"
             sleep 3
           done
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
+            "$GITHUB_WORKSPACE/docker-compose.yml" | \
+            sudo docker compose -p odoo-deploy-ci -f - exec -T db \
+              pg_isready -U odoo
 
       # Create the odoo_test database, then initialise it with the base module
       # using the already-running compose stack.
@@ -40,21 +66,37 @@ jobs:
       # starting a second one.
       - name: Initialize test database
         run: |
-          sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" exec -T db createdb -U odoo odoo_test || true
-          sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" run --rm --no-deps \
-            odoo \
-            odoo \
-              --db_host=db \
-              --db_user=odoo \
-              --db_password=odoo \
-              -d odoo_test \
-              -i base \
-              --without-demo=all \
-              --stop-after-init \
-              --log-level=warn
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
+            "$GITHUB_WORKSPACE/docker-compose.yml" | \
+            sudo docker compose -p odoo-deploy-ci -f - exec -T db \
+              createdb -U odoo odoo_test || true
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
+            "$GITHUB_WORKSPACE/docker-compose.yml" | \
+            sudo docker compose -p odoo-deploy-ci -f - run --rm --no-deps \
+              odoo \
+              odoo \
+                --db_host=db \
+                --db_user=odoo \
+                --db_password=odoo \
+                -d odoo_test \
+                -i base \
+                --without-demo=all \
+                --stop-after-init \
+                --log-level=warn
 
       - name: Deploy modules
         run: |
           echo "Deploying Odoo modules to production..."
           echo "Modules: fleet_tests, om_hospital"
           # Add deployment steps here (e.g. SSH deploy, Docker push, etc.)
+
+      # On failure only: tear down the stack and remove the staging directory
+      # so resources are not left behind from a broken run.
+      # On success the containers are intentionally left running.
+      - name: Stop services (on failure)
+        if: failure()
+        run: |
+          sed "s|\./addons|$HOME/odoo-ci-addons|g" \
+            "$GITHUB_WORKSPACE/docker-compose.yml" | \
+            sudo docker compose -p odoo-deploy-ci -f - down -v || true
+          rm -rf "$HOME/odoo-ci-addons"
