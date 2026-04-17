@@ -20,19 +20,29 @@ jobs:
       # Bring up Postgres + Odoo using the project's docker-compose.yml.
       # All Python/Odoo setup stays inside Docker — the runner is untouched.
       # sudo is required because the self-hosted runner user is not in the
-      # docker group. The -f flag explicitly points docker compose to the
-      # compose file so it is found regardless of the working directory.
+      # docker group.
+      # Docker is installed as a snap whose AppArmor profile restricts access
+      # to /opt/ (where the runner workspace lives). Work around this by
+      # copying the compose file to /tmp (which snap can always read) and
+      # rewriting the relative ./addons volume to an absolute path so the
+      # correct workspace directory is still bind-mounted by the daemon.
+      - name: Prepare compose file
+        run: |
+          sed "s|\./addons|$GITHUB_WORKSPACE/addons|g" \
+            "$GITHUB_WORKSPACE/docker-compose.yml" > /tmp/docker-compose.yml
+
       - name: Start services with Docker Compose
-        run: sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" up -d
+        run: sudo docker compose -f /tmp/docker-compose.yml up -d
 
       # Poll until Postgres inside the compose stack accepts connections.
       - name: Wait for Postgres to be healthy
         run: |
           for i in $(seq 1 30); do
-            sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" exec -T db pg_isready -U odoo && break
+            sudo docker compose -f /tmp/docker-compose.yml exec -T db pg_isready -U odoo && break
             echo "Waiting for Postgres... ($i/30)"
             sleep 3
           done
+          sudo docker compose -f /tmp/docker-compose.yml exec -T db pg_isready -U odoo
 
       # Create the odoo_test database, then initialise it with the base module
       # using the already-running compose stack.
@@ -40,8 +50,8 @@ jobs:
       # starting a second one.
       - name: Initialize test database
         run: |
-          sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" exec -T db createdb -U odoo odoo_test || true
-          sudo docker compose -f "$GITHUB_WORKSPACE/docker-compose.yml" run --rm --no-deps \
+          sudo docker compose -f /tmp/docker-compose.yml exec -T db createdb -U odoo odoo_test || true
+          sudo docker compose -f /tmp/docker-compose.yml run --rm --no-deps \
             odoo \
             odoo \
               --db_host=db \
