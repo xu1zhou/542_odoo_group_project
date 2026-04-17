@@ -14,6 +14,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Bring up Postgres + Odoo using the project's docker-compose.yml.
+      # All Python/Odoo setup stays inside Docker — the runner is untouched.
+      - name: Start services with Docker Compose
+        run: docker compose up -d
+
+      # Poll until Postgres inside the compose stack accepts connections.
+      - name: Wait for Postgres to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            docker compose exec -T db pg_isready -U odoo && break
+            echo "Waiting for Postgres... ($i/30)"
+            sleep 3
+          done
+
+      # Create the odoo_test database, then initialise it with the base module
+      # using the already-running compose stack.
+      # docker compose run --no-deps reuses the running db service without
+      # starting a second one.
+      - name: Initialize test database
+        run: |
+          docker compose exec -T db createdb -U odoo odoo_test || true
+          docker compose run --rm --no-deps \
+            odoo \
+            odoo \
+              --db_host=db \
+              --db_user=odoo \
+              --db_password=odoo \
+              -d odoo_test \
+              -i base \
+              --without-demo=all \
+              --stop-after-init \
+              --log-level=warn
+
       - name: Deploy modules
         run: |
           echo "Deploying Odoo modules to production..."

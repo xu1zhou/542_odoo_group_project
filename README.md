@@ -43,7 +43,7 @@ newgrp docker
 Verify:
 ```bash
 docker --version
-docker compose version
+sudo docker compose version
 docker ps
 ```
 If docker ps shows a permission error, log out and log back in, then retry.
@@ -59,15 +59,15 @@ cd 542_odoo_group_project
 
 Start the stack:
 ```bash
-docker compose up -d
+sudo docker compose up -d
 ```
 Check containers:
 ```bash
-docker compose ps
+sudo docker compose ps
 ```
 Follow logs (optional):
 ```bash
-docker compose logs -f odoo
+sudo docker compose logs -f odoo
 ```
 Open Odoo in your browser:
 
@@ -111,13 +111,13 @@ We run only our module tests (not the full Odoo test suite) using --test-tags.
 
 Run Fleet tests (5 tests)
 ```bash
-docker compose exec odoo odoo -d testdb -u fleet_tests \
+sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
   --test-tags /fleet_tests \
   --stop-after-init --no-http --log-level=test
 ```
 Run Hospital tests (5 tests)
 ```bash
-docker compose exec odoo odoo -d testdb -u om_hospital \
+sudo docker compose exec odoo odoo -d testdb -u om_hospital \
   --test-tags /om_hospital \
   --stop-after-init --no-http --log-level=test
 ```
