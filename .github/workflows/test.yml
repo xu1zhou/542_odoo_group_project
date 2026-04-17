@@ -12,28 +12,91 @@ jobs:
     permissions:
       contents: read
 
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Build the image that contains Python, system deps, and Odoo 15.
+      # Nothing from this step is installed on the runner itself.
+      - name: Build Odoo CI image
+        run: docker build -t odoo-ci .github/docker
+
+      # Write odoo.conf into the workspace so it can be bind-mounted into
+      # every container below without touching the runner's /tmp or /opt.
+      - name: Configure Odoo
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.odoo-data"
+          {
+            echo '[options]'
+            echo 'db_host = localhost'
+            echo 'db_port = 5432'
+            echo 'db_user = odoo'
+            echo 'db_password = odoo'
+            echo "addons_path = /opt/odoo/addons,/workspace/addons"
+            echo 'data_dir = /workspace/.odoo-data'
+            echo 'without_demo = all'
+          } > "$GITHUB_WORKSPACE/odoo.conf"
+
+      # Initialise the test database entirely inside the container.
+      # --network host lets the container reach the postgres service on localhost.
+      - name: Initialize test database
+        run: |
+          docker run --rm \
+            --network host \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            odoo-ci \
+            sh -c "
+              PGPASSWORD=odoo createdb -h localhost -U odoo -p 5432 odoo_test
+              python /opt/odoo/odoo-bin \
+                -c /workspace/odoo.conf \
+                -d odoo_test \
+                -i base \
+                --without-demo=all \
+                --stop-after-init \
+                --log-level=warn
+            "
+
       - name: Run fleet_tests module tests
         run: |
-          python /opt/odoo/odoo-bin \
-            -c /tmp/odoo.conf \
-            -d odoo_test \
-            -i fleet_tests \
-            --without-demo=all \
-            --test-tags /fleet_tests \
-            --stop-after-init \
-            --log-level=test
+          docker run --rm \
+            --network host \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            odoo-ci \
+            python /opt/odoo/odoo-bin \
+              -c /workspace/odoo.conf \
+              -d odoo_test \
+              -i fleet_tests \
+              --without-demo=all \
+              --test-tags /fleet_tests \
+              --stop-after-init \
+              --log-level=test
 
       - name: Run om_hospital module tests
         run: |
-          python /opt/odoo/odoo-bin \
-            -c /tmp/odoo.conf \
-            -d odoo_test \
-            -i om_hospital \
-            --without-demo=all \
-            --test-tags /om_hospital \
-            --stop-after-init \
-            --log-level=test
+          docker run --rm \
+            --network host \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            odoo-ci \
+            python /opt/odoo/odoo-bin \
+              -c /workspace/odoo.conf \
+              -d odoo_test \
+              -i om_hospital \
+              --without-demo=all \
+              --test-tags /om_hospital \
+              --stop-after-init \
+              --log-level=test
