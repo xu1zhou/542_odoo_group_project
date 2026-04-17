@@ -39,13 +39,13 @@ jobs:
 
       # Build the image that contains Python, system deps, and Odoo 15.
       # Nothing from this step is installed on the runner itself.
-      # Docker is a snap on this runner; the snap AppArmor profile blocks
-      # reads from /opt/ (where the runner workspace lives). Copy the build
-      # context to /tmp so the snap client can read it, then build with sudo.
+      # The Dockerfile has no COPY of local files, so we can pipe it straight
+      # into docker build via stdin, bypassing both the snap AppArmor restriction
+      # on /opt/ and the PrivateTmp namespace mismatch that prevented writing a
+      # build context to /tmp.
       - name: Build Odoo CI image
         run: |
-          sudo cp -r "$GITHUB_WORKSPACE/.github/docker" /tmp/odoo-docker-context
-          sudo docker build -t odoo-ci /tmp/odoo-docker-context
+          sudo docker build -t odoo-ci - < "$GITHUB_WORKSPACE/.github/docker/Dockerfile"
 
       # Write odoo.conf into the workspace so it can be bind-mounted into
       # every container below without touching the runner's /tmp or /opt.
@@ -114,6 +114,4 @@ jobs:
 
       - name: Stop Postgres
         if: always()
-        run: |
-          sudo docker rm -f postgres-ci || true
-          rm -rf /tmp/odoo-docker-context
+        run: sudo docker rm -f postgres-ci || true
