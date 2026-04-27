@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, ip-172-31-44-204]
+    runs-on: [self-hosted, aws]
     permissions:
       contents: read
 
