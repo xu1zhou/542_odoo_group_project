@@ -47,6 +47,92 @@ pip install -r requirements.txt
 
 ---
 
+## macOS Setup Guide
+
+### 1 — Install Homebrew (if not already installed)
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### 2 — Install Python ≥ 3.9
+
+macOS ships an old system Python. Install a modern version via Homebrew:
+
+```bash
+brew install python@3.11
+```
+
+Verify:
+
+```bash
+python3 --version   # should print 3.11.x or later
+```
+
+### 3 — Install Google Chrome
+
+Download and install from <https://www.google.com/chrome/>, **or** use Homebrew Cask:
+
+```bash
+brew install --cask google-chrome
+```
+
+> `webdriver-manager` downloads the matching ChromeDriver automatically, so you do **not** need to install ChromeDriver separately.
+
+### 4 — Install Docker Desktop (to run Odoo)
+
+Download from <https://www.docker.com/products/docker-desktop/> or install via Homebrew:
+
+```bash
+brew install --cask docker
+open /Applications/Docker.app   # start Docker Desktop
+```
+
+Wait until the Docker whale icon in the menu bar is steady (not animated).
+
+### 5 — Start Odoo
+
+From the **repository root**:
+
+```bash
+docker compose up -d
+```
+
+Open <http://localhost:8069> in your browser and confirm Odoo loads before running the tests.
+
+### 6 — Create and activate a virtual environment (recommended)
+
+```bash
+cd selenium_tests
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 7 — Run the tests
+
+```bash
+# All tests
+python -m pytest test_hospital_selenium.py test_fleet_selenium.py -v
+
+# Hospital module only
+python -m pytest test_hospital_selenium.py -v
+
+# Fleet module only
+python -m pytest test_fleet_selenium.py -v
+```
+
+### macOS-specific notes
+
+| Topic | Detail |
+|-------|--------|
+| **Apple Silicon (M1/M2/M3)** | `webdriver-manager` downloads an ARM64 ChromeDriver automatically; no extra steps needed. |
+| **Gatekeeper / "developer cannot be verified"** | If macOS blocks ChromeDriver, run: `xattr -d com.apple.quarantine $(which chromedriver)` |
+| **Headless vs. visible window** | Tests run headless by default. To watch them live, comment out `--headless` in `base_test.py` (see [Notes](#notes) below). |
+| **Python path on Apple Silicon** | Homebrew installs Python in `/opt/homebrew/bin/`. If `python3` is not found, add `/opt/homebrew/bin` to your `PATH` in `~/.zshrc`: `export PATH="/opt/homebrew/bin:$PATH"` |
+
+---
+
 ## Running the Tests
 
 ```bash
