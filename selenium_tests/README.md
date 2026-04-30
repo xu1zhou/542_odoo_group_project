@@ -173,6 +173,69 @@ Edit `base_test.py` to point at a different host, port, or credentials.
 
 ---
 
+## Running Tests Against an Existing Odoo Instance
+
+If you already have an Odoo server running (on your local machine, in the cloud, or provided by your instructor/team), you **do not need Docker**. Follow these steps:
+
+### 1 — Confirm the Odoo instance is reachable
+
+Open the Odoo URL in your browser (e.g. `http://your-server:8069` or `https://mycompany.odoo.com`) and make sure you can log in.
+
+> **Required modules**: `om_hospital` and `fleet` must be installed on that database, and at least one **Patient**, one **Doctor**, and one **Vehicle** record must exist (needed by TC-H-03 and TC-F-03).
+
+### 2 — Edit `base_test.py` with the correct URL and credentials
+
+Open `selenium_tests/base_test.py` and update the three constants near the top:
+
+```python
+# ── Configuration ────────────────────────────────────────────────────────────
+BASE_URL   = "https://your-odoo-url.example.com"   # ← replace with your URL
+ADMIN_USER = "your_login@example.com"               # ← your Odoo username/email
+ADMIN_PASS = "your_password"                        # ← your Odoo password
+DEFAULT_WAIT = 15   # increase if the remote server is slow
+# ─────────────────────────────────────────────────────────────────────────────
+```
+
+> **Note**: Do **not** add a trailing slash to `BASE_URL`.
+
+### 3 — Install Python dependencies (once)
+
+```bash
+cd selenium_tests
+
+# (optional but recommended) use a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
+```
+
+### 4 — Run the tests
+
+```bash
+# All tests
+python -m pytest test_hospital_selenium.py test_fleet_selenium.py -v
+
+# Hospital module only
+python -m pytest test_hospital_selenium.py -v
+
+# Fleet module only
+python -m pytest test_fleet_selenium.py -v
+```
+
+### Tips for remote Odoo instances
+
+| Situation | What to do |
+|-----------|-----------|
+| **HTTPS with a self-signed certificate** | Add `options.add_argument("--ignore-certificate-errors")` in `base_test.py` inside `setUpClass`. |
+| **Slow network / server** | Increase `DEFAULT_WAIT` to `20` or higher so WebDriverWait doesn't time out prematurely. |
+| **Different database** | If the Odoo instance hosts multiple databases, navigate to `BASE_URL/web/database/selector` in your browser first and select the correct database before running tests. |
+| **Two-factor authentication enabled** | Temporarily disable 2FA for the test user, or use a dedicated test account without 2FA. |
+| **Modules not installed** | Go to **Apps** → search for `Hospital` / `Fleet` → click **Install**. |
+| **No demo data** | Seed at least one Patient + Doctor record via **Hospital → Patients** / **Hospital → Doctors**, and one Vehicle via **Fleet → Vehicles → Fleet** before running TC-H-03 and TC-F-03. |
+
+---
+
 ## Test-case Summaries
 
 ### Hospital module (`test_hospital_selenium.py`)
