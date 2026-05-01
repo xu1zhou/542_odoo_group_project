@@ -99,6 +99,20 @@ class OdooBaseTest(unittest.TestCase):
         except NoSuchElementException:
             return None
 
+    def click_home_menu_toggle(self):
+        """Click the home/apps toggle button in the top-left corner of the navbar."""
+        toggle = self.wait.until(
+            EC.element_to_be_clickable(
+                (By.XPATH,
+                 "//*[contains(@class,'o_home_menu_toggle')] | "
+                 "//nav[contains(@class,'o_main_navbar')]"
+                 "//*[contains(@class,'o_menu_toggle')] | "
+                 "//nav[contains(@class,'o_main_navbar')]//a[@href='/odoo' or @href='/web']")
+            )
+        )
+        toggle.click()
+        time.sleep(0.5)
+
     def navigate_to_menu(self, *menu_labels: str):
         """Click a sequence of menu items by their visible text labels."""
         for label in menu_labels:

@@ -30,6 +30,48 @@ from base_test import ADMIN_PASS, ADMIN_USER, BASE_URL, OdooBaseTest
 class HospitalSeleniumTests(OdooBaseTest):
     """Five Selenium test cases covering the om_hospital module."""
 
+    # ── Navigation helper ─────────────────────────────────────────────────────
+
+    def _navigate_to_hospital_section(self, section_label: str):
+        """Navigate to a Hospital module section via the UI menu.
+
+        Steps:
+        1. Click the top-left home/apps nav button.
+        2. Click the 'Hospital' app tile in the apps menu.
+        3. Click *section_label* in the top horizontal menu bar
+           (e.g. 'Patients' or 'Appointments').
+        """
+        # 1. Click the top-left nav button (home/apps toggle)
+        self.click_home_menu_toggle()
+
+        # 2. Click the 'Hospital' app tile
+        hospital_app = self.wait.until(
+            EC.element_to_be_clickable(
+                (By.XPATH,
+                 "//*[contains(@class,'o_app') and "
+                 ".//*[normalize-space(text())='Hospital']] | "
+                 "//a[.//*[normalize-space(text())='Hospital'] "
+                 "and contains(@class,'o_app')]")
+            )
+        )
+        hospital_app.click()
+        time.sleep(1)
+
+        # 3. Click the section in the top horizontal menu bar
+        section_btn = self.wait.until(
+            EC.element_to_be_clickable(
+                (By.XPATH,
+                 f"//nav[contains(@class,'o_main_navbar')]"
+                 f"//*[normalize-space(text())='{section_label}'] | "
+                 f"//*[contains(@class,'o_nav_entry') and "
+                 f"normalize-space(text())='{section_label}'] | "
+                 f"//*[contains(@class,'o_menu_sections')]"
+                 f"//*[normalize-space(text())='{section_label}']")
+            )
+        )
+        section_btn.click()
+        time.sleep(1)
+
     # ── TC-H-01  Login (positive / must-have) ────────────────────────────────
 
     def test_01_login_valid(self):
@@ -57,8 +99,8 @@ class HospitalSeleniumTests(OdooBaseTest):
         """TC-H-02: Create a new patient record with name, age and gender."""
         self.login()
 
-        # Navigate: Hospital → Patients → Patients
-        self.driver.get(f"{BASE_URL}/odoo/hospital/patients")
+        # Navigate: home toggle → Hospital app → Patients (top bar) → New
+        self._navigate_to_hospital_section("Patients")
         self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, "o_list_view")))
 
         self.click_new()
@@ -106,8 +148,8 @@ class HospitalSeleniumTests(OdooBaseTest):
         """TC-H-03: Create an appointment by selecting an existing patient and doctor."""
         self.login()
 
-        # Navigate to Appointments list
-        self.driver.get(f"{BASE_URL}/odoo/hospital/appointments")
+        # Navigate: home toggle → Hospital app → Appointments (top bar) → New
+        self._navigate_to_hospital_section("Appointments")
         self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, "o_list_view")))
 
         self.click_new()
@@ -203,7 +245,8 @@ class HospitalSeleniumTests(OdooBaseTest):
         """TC-H-05: Saving a patient form without the required Name field must raise a validation error."""
         self.login()
 
-        self.driver.get(f"{BASE_URL}/odoo/hospital/patients")
+        # Navigate: home toggle → Hospital app → Patients (top bar) → New
+        self._navigate_to_hospital_section("Patients")
         self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, "o_list_view")))
 
         self.click_new()
