@@ -111,7 +111,10 @@ class OdooBaseTest(unittest.TestCase):
             )
         )
         toggle.click()
-        time.sleep(0.5)
+        # Wait until at least one app tile is visible in the apps menu
+        self.wait.until(
+            EC.presence_of_element_located((By.XPATH, "//*[contains(@class,'o_app')]"))
+        )
 
     def navigate_to_menu(self, *menu_labels: str):
         """Click a sequence of menu items by their visible text labels."""

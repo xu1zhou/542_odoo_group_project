@@ -55,7 +55,14 @@ class HospitalSeleniumTests(OdooBaseTest):
             )
         )
         hospital_app.click()
-        time.sleep(1)
+        # Wait until the Hospital section menu bar is visible in the top navbar
+        self.wait.until(
+            EC.presence_of_element_located(
+                (By.XPATH,
+                 "//nav[contains(@class,'o_main_navbar')]"
+                 "//*[contains(@class,'o_menu_sections') or contains(@class,'o_nav_entry')]")
+            )
+        )
 
         # 3. Click the section in the top horizontal menu bar
         section_btn = self.wait.until(
@@ -70,7 +77,13 @@ class HospitalSeleniumTests(OdooBaseTest):
             )
         )
         section_btn.click()
-        time.sleep(1)
+        # Wait until the list view for the section has loaded
+        self.wait.until(
+            EC.presence_of_element_located(
+                (By.XPATH,
+                 "//*[contains(@class,'o_list_view') or contains(@class,'o_kanban_view')]")
+            )
+        )
 
     # ── TC-H-01  Login (positive / must-have) ────────────────────────────────
 
