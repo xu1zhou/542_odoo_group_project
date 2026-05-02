@@ -18,17 +18,126 @@ Prerequisites
         python -m pytest test_hospital_selenium.py -v
 """
 
+import json
+import re
 import time
 import unittest
+import xmlrpc.client
+from urllib.request import Request, urlopen
 
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from base_test import ADMIN_PASS, ADMIN_USER, BASE_URL, OdooBaseTest
+
+_TEST_DOCTOR_NAME = "Adam"
 
 
 class HospitalSeleniumTests(OdooBaseTest):
     """Five Selenium test cases covering the om_hospital module."""
+
+    # IDs of records created during the test run (populated by each test).
+    _created_doctor_id: int | None = None
+    _created_patient_id: int | None = None
+    _created_appointment_id: int | None = None
+
+    # ── RPC helper ────────────────────────────────────────────────────────────
+
+    @classmethod
+    def _odoo_rpc(cls):
+        """Return (db_name, uid, models_proxy) for XML-RPC calls."""
+        req = Request(
+            f"{BASE_URL}/web/database/list",
+            data=json.dumps({"jsonrpc": "2.0", "method": "call", "id": 1, "params": {}}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        db_name = json.loads(urlopen(req, timeout=5).read())["result"][0]
+        common = xmlrpc.client.ServerProxy(f"{BASE_URL}/xmlrpc/2/common")
+        uid = common.authenticate(db_name, ADMIN_USER, ADMIN_PASS, {})
+        models = xmlrpc.client.ServerProxy(f"{BASE_URL}/xmlrpc/2/object")
+        return db_name, uid, models
+
+    # ── Setup / teardown ──────────────────────────────────────────────────────
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._ensure_test_doctor()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._cleanup_test_data()
+        super().tearDownClass()
+
+    @classmethod
+    def _ensure_test_doctor(cls):
+        """Create a doctor record via XML-RPC if none exist (needed for TC-H-03)."""
+        try:
+            db_name, uid, models = cls._odoo_rpc()
+            existing = models.execute_kw(
+                db_name, uid, ADMIN_PASS,
+                "hospital.doctor", "search_read", [[]],
+                {"fields": ["id", "doctor_name"], "limit": 1},
+            )
+            if not existing:
+                cls._created_doctor_id = models.execute_kw(
+                    db_name, uid, ADMIN_PASS,
+                    "hospital.doctor", "create",
+                    [{"doctor_name": _TEST_DOCTOR_NAME, "gender": "male"}],
+                )
+        except Exception as exc:
+            print(f"\nWarning: could not ensure test doctor via RPC: {exc}")
+
+    @classmethod
+    def _cleanup_test_data(cls):
+        """Delete every record created during this test run, plus any stale test
+        records left by earlier runs (identified by well-known test names).
+
+        Note: hospital.appointment.unlink() is overridden to call ensure_one(),
+        so appointments must be deleted individually.
+        """
+        try:
+            db_name, uid, models = cls._odoo_rpc()
+
+            def unlink_one(model, rec_id):
+                if rec_id:
+                    models.execute_kw(db_name, uid, ADMIN_PASS, model, "unlink", [[rec_id]])
+
+            def unlink_many(model, ids):
+                for rec_id in (ids or []):
+                    unlink_one(model, rec_id)
+
+            # --- Delete records tracked by ID for this run (most precise) ---
+            # Appointments first (FK references patients/doctors).
+            unlink_one("hospital.appointment", cls._created_appointment_id)
+            unlink_one("hospital.patient",     cls._created_patient_id)
+            unlink_one("hospital.doctor",      cls._created_doctor_id)
+
+            # --- Sweep any leftover test patients and their appointments -----
+            stale_patient_ids = models.execute_kw(
+                db_name, uid, ADMIN_PASS,
+                "hospital.patient", "search",
+                [[["name", "=", "Selenium Test Patient"]]],
+            )
+            if stale_patient_ids:
+                stale_appt_ids = models.execute_kw(
+                    db_name, uid, ADMIN_PASS,
+                    "hospital.appointment", "search",
+                    [[["patient_id", "in", stale_patient_ids]]],
+                )
+                unlink_many("hospital.appointment", stale_appt_ids)
+                unlink_many("hospital.patient",     stale_patient_ids)
+        except Exception as exc:
+            print(f"\nWarning: test-data cleanup failed: {exc}")
+
+    @staticmethod
+    def _id_from_url(url: str) -> int | None:
+        """Parse the record id from an Odoo form URL fragment (id=N)."""
+        m = re.search(r"[#&]id=(\d+)", url)
+        return int(m.group(1)) if m else None
 
     # ── Navigation helper ─────────────────────────────────────────────────────
 
@@ -48,10 +157,7 @@ class HospitalSeleniumTests(OdooBaseTest):
         hospital_app = self.wait.until(
             EC.element_to_be_clickable(
                 (By.XPATH,
-                 "//*[contains(@class,'o_app') and "
-                 ".//*[normalize-space(text())='Hospital']] | "
-                 "//a[.//*[normalize-space(text())='Hospital'] "
-                 "and contains(@class,'o_app')]")
+                 "//*[contains(@class,'o_app') and normalize-space(.)='Hospital']")
             )
         )
         hospital_app.click()
@@ -77,6 +183,19 @@ class HospitalSeleniumTests(OdooBaseTest):
             )
         )
         section_btn.click()
+        # If the section is a dropdown, click the matching sub-item
+        try:
+            sub_item = WebDriverWait(self.driver, 2).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH,
+                     f"//nav[contains(@class,'o_main_navbar')]"
+                     f"//div[contains(@class,'dropdown-menu') and contains(@class,'d-block')]"
+                     f"//a[normalize-space(text())='{section_label}']")
+                )
+            )
+            sub_item.click()
+        except TimeoutException:
+            pass  # no sub-menu; section navigated directly
         # Wait until the list view for the section has loaded
         self.wait.until(
             EC.presence_of_element_located(
@@ -126,7 +245,7 @@ class HospitalSeleniumTests(OdooBaseTest):
         gender_select = self.find_or_none(By.NAME, "gender")
         if gender_select and gender_select.tag_name == "select":
             from selenium.webdriver.support.ui import Select
-            Select(gender_select).select_by_value("male")
+            Select(gender_select).select_by_visible_text("Male")
         else:
             male_option = self.find_or_none(
                 By.XPATH,
@@ -138,11 +257,14 @@ class HospitalSeleniumTests(OdooBaseTest):
                 male_option.click()
 
         self.click_save()
-        time.sleep(1)
+
+        # Store created patient ID so tearDownClass can clean it up.
+        self.__class__._created_patient_id = self._id_from_url(self.driver.current_url)
 
         # Verify the record was saved – reference field becomes visible
         reference = self.find_or_none(
             By.XPATH,
+            "//span[@name='reference'] | "
             "//div[@name='reference']//span | "
             "//input[@name='reference']",
         )
@@ -163,6 +285,8 @@ class HospitalSeleniumTests(OdooBaseTest):
 
         # Navigate: home toggle → Hospital app → Appointments (top bar) → New
         self._navigate_to_hospital_section("Appointments")
+        # Confirm we landed on the appointment model before proceeding
+        self.wait.until(EC.url_contains("appointment"))
         self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, "o_list_view")))
 
         self.click_new()
@@ -174,7 +298,6 @@ class HospitalSeleniumTests(OdooBaseTest):
             )
         )
         patient_input.send_keys("a")  # start typing to trigger search
-        time.sleep(1)
 
         # Pick the first suggestion from the many2one dropdown
         first_option = self.wait.until(
@@ -185,29 +308,31 @@ class HospitalSeleniumTests(OdooBaseTest):
             )
         )
         first_option.click()
-        time.sleep(0.5)
+        time.sleep(0.5)  # wait for onchange to settle before interacting with doctor field
 
-        # Doctor field
+        # Doctor field – ActionChains ensures move+click+type fires atomically,
+        # which reliably triggers the Many2one autocomplete dropdown.
         doctor_input = self.wait.until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//div[@name='doctor_id']//input")
             )
         )
-        doctor_input.send_keys("a")
-        time.sleep(1)
+        ActionChains(self.driver).move_to_element(doctor_input).click().send_keys("a").perform()
 
         first_doctor = self.wait.until(
             EC.element_to_be_clickable(
                 (By.XPATH,
-                 "//ul[contains(@class,'ui-autocomplete')]//li[1] | "
-                 "//div[contains(@class,'o_dropdown_menu')]//li[1]")
+                 "(//ul[contains(@class,'ui-autocomplete')"
+                 " and not(contains(@style,'display: none'))]"
+                 "//li[contains(@class,'ui-menu-item')])[1]")
             )
         )
         first_doctor.click()
-        time.sleep(0.5)
 
         self.click_save()
-        time.sleep(1)
+
+        # Store created appointment ID so tearDownClass can clean it up.
+        self.__class__._created_appointment_id = self._id_from_url(self.driver.current_url)
 
         self.assertFalse(
             self.has_error_message(),
@@ -216,7 +341,7 @@ class HospitalSeleniumTests(OdooBaseTest):
         # The appointment reference should now be a sequence like APT/2024/0001
         appt_name = self.find_or_none(
             By.XPATH,
-            "//div[@name='name']//span | //input[@name='name']"
+            "//span[@name='name'] | //input[@name='name']"
         )
         self.assertIsNotNone(
             appt_name,
@@ -268,9 +393,18 @@ class HospitalSeleniumTests(OdooBaseTest):
         self.fill_field("age", "25")
 
         self.click_save()
-        time.sleep(1)
 
-        # Odoo should show a validation tooltip or dialog about the required field
+        # Odoo should show a validation tooltip or dialog about the required field.
+        # Wait briefly for the error indicator to appear.
+        try:
+            self.wait.until(
+                lambda d: self.has_error_message()
+                or d.find_elements(By.XPATH,
+                    "//input[@name='name' and contains(@class,'o_field_invalid')] | "
+                    "//div[@name='name' and contains(@class,'o_field_invalid')]")
+            )
+        except TimeoutException:
+            pass
         validation_present = (
             self.has_error_message()
             or self.find_or_none(
