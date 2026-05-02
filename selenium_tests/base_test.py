@@ -29,7 +29,7 @@ except ImportError:
 BASE_URL = "http://localhost:8069"
 ADMIN_USER = "admin"
 ADMIN_PASS = "admin"
-DEFAULT_WAIT = 10  # seconds
+DEFAULT_WAIT = 3  # seconds
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -40,7 +40,7 @@ class OdooBaseTest(unittest.TestCase):
     def setUpClass(cls):
         super().setUpClass()
         options = Options()
-        options.add_argument("--headless")
+        # options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1920,1080")
@@ -93,11 +93,22 @@ class OdooBaseTest(unittest.TestCase):
         time.sleep(1)
 
     def find_or_none(self, by, value):
-        """Return an element or None (does not raise)."""
-        try:
-            return self.driver.find_element(by, value)
-        except NoSuchElementException:
-            return None
+        """Return an element or None without triggering implicit-wait polling."""
+        elements = self.driver.find_elements(by, value)
+        return elements[0] if elements else None
+
+    def click_home_menu_toggle(self):
+        """Open the apps dropdown menu via the top-left grid button."""
+        toggle = self.wait.until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, ".o_navbar_apps_menu button")
+            )
+        )
+        toggle.click()
+        # Wait until at least one app tile is visible in the dropdown
+        self.wait.until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "a.o_app"))
+        )
 
     def navigate_to_menu(self, *menu_labels: str):
         """Click a sequence of menu items by their visible text labels."""
@@ -112,10 +123,13 @@ class OdooBaseTest(unittest.TestCase):
             time.sleep(0.5)
 
     def click_new(self):
-        """Click the 'New' button to open a blank form."""
+        """Click the 'New' or 'Create' button to open a blank form."""
         new_btn = self.wait.until(
             EC.element_to_be_clickable(
-                (By.XPATH, "//button[normalize-space(.)='New']")
+                (By.XPATH,
+                 "//button[normalize-space(.)='New'] | "
+                 "//button[contains(@class,'o_list_button_add')] | "
+                 "//a[contains(@class,'o_list_button_add')]")
             )
         )
         new_btn.click()
