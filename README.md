@@ -2,7 +2,7 @@
 
 This repository provides a **reproducible Odoo 15 Community** development environment using **Docker Compose**, plus the addons and Python tests required for the project:
 - `addons/om_hospital` (module + 5 Python tests)
-- `addons/fleet_tests` (Fleet-focused module + 5 Python tests)
+- `addons/fleet_tests` (Fleet-focused module + 8 Python tests)
 
 ---
 
@@ -109,7 +109,7 @@ Install these modules:
 
 We run only our module tests (not the full Odoo test suite) using --test-tags.
 
-Run Fleet tests (5 tests)
+Run all Fleet tests (8 tests)
 ```bash
 sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
   --test-tags /fleet_tests \
@@ -119,5 +119,28 @@ Run Hospital tests (5 tests)
 ```bash
 sudo docker compose exec odoo odoo -d testdb -u om_hospital \
   --test-tags /om_hospital \
+  --stop-after-init --no-http --log-level=test
+```
+
+### Run individual Fleet test cases
+
+**test_01 — Delete vehicle**
+```bash
+sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
+  --test-tags /fleet_tests/tests/test_01_vehicle_delete.py:TestVehicleDelete.test_01_vehicle_delete \
+  --stop-after-init --no-http --log-level=test
+```
+
+**test_02 — Delete service log**
+```bash
+sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
+  --test-tags /fleet_tests/tests/test_02_delete_service_log.py:TestDeleteServiceLog.test_02_delete_service_log \
+  --stop-after-init --no-http --log-level=test
+```
+
+**test_03 — Update contract log**
+```bash
+sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
+  --test-tags /fleet_tests/tests/test_03_update_contract_log.py:TestUpdateContractLog.test_03_update_contract_log \
   --stop-after-init --no-http --log-level=test
 ```
