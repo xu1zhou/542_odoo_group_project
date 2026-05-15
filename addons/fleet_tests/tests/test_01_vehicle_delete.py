@@ -1,6 +1,8 @@
+from odoo.tests import tagged
 from odoo.tests.common import SavepointCase
 
 
+@tagged("test_01", "post_install", "-at_install")
 class TestVehicleDelete(SavepointCase):
 
     @classmethod

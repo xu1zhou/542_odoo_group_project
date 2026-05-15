@@ -1,7 +1,9 @@
+from odoo.tests import tagged
 from odoo.tests.common import SavepointCase
 from odoo import fields
 
 
+@tagged("test_03", "post_install", "-at_install")
 class TestUpdateContractLog(SavepointCase):
 
     @classmethod

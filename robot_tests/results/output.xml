@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.4.2 (Python 3.12.3 on linux)" generated="2026-05-13T21:42:43.182179" rpa="false" schemaversion="5">
+<suite id="s1" name="TestCase1 &amp; TestCase2 &amp; TestCase3">
+<suite id="s1-s1" name="TestCase1" source="/home/joe/542_odoo_group_project/robot_tests/TestCase1.robot">
+<test id="s1-s1-t1" name="TestCase1 Positive Run test_01" line="5">
+<kw name="Run Fleet Test With Arg" owner="CommonKeywords">
+<kw name="Run Process" owner="Process">
+<msg time="2026-05-13T21:42:43.218565" level="INFO">Starting process:
+bash -lc "cd /home/joe/542_odoo_group_project &amp;&amp; ./run_fleet_test.sh test_01"</msg>
+<msg time="2026-05-13T21:42:43.218971" level="INFO">Waiting for process to complete.</msg>
+<msg time="2026-05-13T21:42:56.732606" level="INFO">Process completed.</msg>
+<msg time="2026-05-13T21:42:56.732740" level="INFO">${result} = &lt;result object with rc 0&gt;</msg>
+<var>${result}</var>
+<arg>bash</arg>
+<arg>-lc</arg>
+<arg>cd ${REPO_ROOT} &amp;&amp; ./run_fleet_test.sh ${arg}</arg>
+<arg>stdout=PIPE</arg>
+<arg>stderr=STDOUT</arg>
+<arg>timeout=20 minutes</arg>
+<doc>Runs a process and waits for it to complete.</doc>
+<status status="PASS" start="2026-05-13T21:42:43.218151" elapsed="13.514624"/>
+</kw>
+<kw name="Replace String Using Regexp" owner="String">
+<msg time="2026-05-13T21:42:56.733893" level="INFO">${clean_output} = === Fleet Individual Test Run ===
+Test Name: test_01 — Delete vehicle
+Test Message: Create a vehicle and verify it can be deleted successfully.
+
+ Container 542_odoo_group_project-db-1 Running 
+ Contai...</msg>
+<var>${clean_output}</var>
+<arg>${result.stdout}</arg>
+<arg>\\x1b\\[[0-9;]*m</arg>
+<arg>${EMPTY}</arg>
+<doc>Replaces ``pattern`` in the given ``string`` with ``replace_with``.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.732908" elapsed="0.001010"/>
+</kw>
+<return>
+<value>${result.rc}</value>
+<value>${clean_output}</value>
+<status status="PASS" start="2026-05-13T21:42:56.733967" elapsed="0.000042"/>
+</return>
+<msg time="2026-05-13T21:42:56.734350" level="INFO">${rc} = 0</msg>
+<msg time="2026-05-13T21:42:56.734469" level="INFO">${output} = === Fleet Individual Test Run ===
+Test Name: test_01 — Delete vehicle
+Test Message: Create a vehicle and verify it can be deleted successfully.
+
+ Container 542_odoo_group_project-db-1 Running 
+ Contai...</msg>
+<var>${rc}</var>
+<var>${output}</var>
+<arg>test_01</arg>
+<status status="PASS" start="2026-05-13T21:42:43.217755" elapsed="13.516733"/>
+</kw>
+<kw name="Command Should Succeed" owner="CommonKeywords">
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<msg time="2026-05-13T21:42:56.735050" level="INFO">Argument types are:
+&lt;class 'int'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${rc}</arg>
+<arg>0</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.734841" elapsed="0.000256"/>
+</kw>
+<arg>${rc}</arg>
+<status status="PASS" start="2026-05-13T21:42:56.734643" elapsed="0.000500"/>
+</kw>
+<kw name="Output Should Contain" owner="CommonKeywords">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${output}</arg>
+<arg>${expected}</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.735434" elapsed="0.000313"/>
+</kw>
+<arg>${output}</arg>
+<arg>Test Name: test_01</arg>
+<status status="PASS" start="2026-05-13T21:42:56.735251" elapsed="0.000542"/>
+</kw>
+<kw name="Output Should Contain" owner="CommonKeywords">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${output}</arg>
+<arg>${expected}</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.736092" elapsed="0.000215"/>
+</kw>
+<arg>${output}</arg>
+<arg>Test Message:</arg>
+<status status="PASS" start="2026-05-13T21:42:56.735903" elapsed="0.000449"/>
+</kw>
+<kw name="Output Should Contain" owner="CommonKeywords">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${output}</arg>
+<arg>${expected}</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.736643" elapsed="0.000238"/>
+</kw>
+<arg>${output}</arg>
+<arg>Result:</arg>
+<status status="PASS" start="2026-05-13T21:42:56.736458" elapsed="0.000468"/>
+</kw>
+<doc>Positive case: running test_01 should succeed and print highlighted test metadata.</doc>
+<status status="PASS" start="2026-05-13T21:42:43.217252" elapsed="13.519772"/>
+</test>
+<status status="PASS" start="2026-05-13T21:42:43.205884" elapsed="13.531402"/>
+</suite>
+<suite id="s1-s2" name="TestCase2" source="/home/joe/542_odoo_group_project/robot_tests/TestCase2.robot">
+<test id="s1-s2-t1" name="TestCase2 Negative Invalid Argument" line="5">
+<kw name="Run Fleet Test With Arg" owner="CommonKeywords">
+<kw name="Run Process" owner="Process">
+<msg time="2026-05-13T21:42:56.739644" level="INFO">Starting process:
+bash -lc "cd /home/joe/542_odoo_group_project &amp;&amp; ./run_fleet_test.sh test_99"</msg>
+<msg time="2026-05-13T21:42:56.740016" level="INFO">Waiting for process to complete.</msg>
+<msg time="2026-05-13T21:42:56.840221" level="INFO">Process completed.</msg>
+<msg time="2026-05-13T21:42:56.840327" level="INFO">${result} = &lt;result object with rc 1&gt;</msg>
+<var>${result}</var>
+<arg>bash</arg>
+<arg>-lc</arg>
+<arg>cd ${REPO_ROOT} &amp;&amp; ./run_fleet_test.sh ${arg}</arg>
+<arg>stdout=PIPE</arg>
+<arg>stderr=STDOUT</arg>
+<arg>timeout=20 minutes</arg>
+<doc>Runs a process and waits for it to complete.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.739286" elapsed="0.101066"/>
+</kw>
+<kw name="Replace String Using Regexp" owner="String">
+<msg time="2026-05-13T21:42:56.841037" level="INFO">${clean_output} = Invalid test name: test_99
+Valid values: test_01, test_02, test_03</msg>
+<var>${clean_output}</var>
+<arg>${result.stdout}</arg>
+<arg>\\x1b\\[[0-9;]*m</arg>
+<arg>${EMPTY}</arg>
+<doc>Replaces ``pattern`` in the given ``string`` with ``replace_with``.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.840461" elapsed="0.000595"/>
+</kw>
+<return>
+<value>${result.rc}</value>
+<value>${clean_output}</value>
+<status status="PASS" start="2026-05-13T21:42:56.841095" elapsed="0.000033"/>
+</return>
+<msg time="2026-05-13T21:42:56.841444" level="INFO">${rc} = 1</msg>
+<msg time="2026-05-13T21:42:56.841475" level="INFO">${output} = Invalid test name: test_99
+Valid values: test_01, test_02, test_03</msg>
+<var>${rc}</var>
+<var>${output}</var>
+<arg>test_99</arg>
+<status status="PASS" start="2026-05-13T21:42:56.739123" elapsed="0.102368"/>
+</kw>
+<kw name="Command Should Fail" owner="CommonKeywords">
+<kw name="Should Not Be Equal As Integers" owner="BuiltIn">
+<msg time="2026-05-13T21:42:56.841992" level="INFO">Argument types are:
+&lt;class 'int'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${rc}</arg>
+<arg>0</arg>
+<doc>Fails if objects are equal after converting them to integers.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.841798" elapsed="0.000235"/>
+</kw>
+<arg>${rc}</arg>
+<status status="PASS" start="2026-05-13T21:42:56.841622" elapsed="0.000453"/>
+</kw>
+<kw name="Output Should Contain" owner="CommonKeywords">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${output}</arg>
+<arg>${expected}</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.842350" elapsed="0.000216"/>
+</kw>
+<arg>${output}</arg>
+<arg>Invalid test name: test_99</arg>
+<status status="PASS" start="2026-05-13T21:42:56.842177" elapsed="0.000433"/>
+</kw>
+<kw name="Output Should Contain" owner="CommonKeywords">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${output}</arg>
+<arg>${expected}</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.842895" elapsed="0.000218"/>
+</kw>
+<arg>${output}</arg>
+<arg>Valid values: test_01, test_02, test_03</arg>
+<status status="PASS" start="2026-05-13T21:42:56.842712" elapsed="0.000444"/>
+</kw>
+<doc>Negative case: invalid test id should fail with a clear validation message.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.738818" elapsed="0.104425"/>
+</test>
+<status status="PASS" start="2026-05-13T21:42:56.737558" elapsed="0.105891"/>
+</suite>
+<suite id="s1-s3" name="TestCase3" source="/home/joe/542_odoo_group_project/robot_tests/TestCase3.robot">
+<test id="s1-s3-t1" name="TestCase3 Negative Missing Argument" line="5">
+<kw name="Run Fleet Test Without Args" owner="CommonKeywords">
+<kw name="Run Process" owner="Process">
+<msg time="2026-05-13T21:42:56.845503" level="INFO">Starting process:
+bash -lc "cd /home/joe/542_odoo_group_project &amp;&amp; ./run_fleet_test.sh"</msg>
+<msg time="2026-05-13T21:42:56.845837" level="INFO">Waiting for process to complete.</msg>
+<msg time="2026-05-13T21:42:56.946079" level="INFO">Process completed.</msg>
+<msg time="2026-05-13T21:42:56.946171" level="INFO">${result} = &lt;result object with rc 1&gt;</msg>
+<var>${result}</var>
+<arg>bash</arg>
+<arg>-lc</arg>
+<arg>cd ${REPO_ROOT} &amp;&amp; ./run_fleet_test.sh</arg>
+<arg>stdout=PIPE</arg>
+<arg>stderr=STDOUT</arg>
+<arg>timeout=5 minutes</arg>
+<doc>Runs a process and waits for it to complete.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.845192" elapsed="0.100998"/>
+</kw>
+<kw name="Replace String Using Regexp" owner="String">
+<msg time="2026-05-13T21:42:56.946960" level="INFO">${clean_output} = Usage: ./run_fleet_test.sh test_01|test_02|test_03</msg>
+<var>${clean_output}</var>
+<arg>${result.stdout}</arg>
+<arg>\\x1b\\[[0-9;]*m</arg>
+<arg>${EMPTY}</arg>
+<doc>Replaces ``pattern`` in the given ``string`` with ``replace_with``.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.946288" elapsed="0.000696"/>
+</kw>
+<return>
+<value>${result.rc}</value>
+<value>${clean_output}</value>
+<status status="PASS" start="2026-05-13T21:42:56.947023" elapsed="0.000027"/>
+</return>
+<msg time="2026-05-13T21:42:56.947342" level="INFO">${rc} = 1</msg>
+<msg time="2026-05-13T21:42:56.947372" level="INFO">${output} = Usage: ./run_fleet_test.sh test_01|test_02|test_03</msg>
+<var>${rc}</var>
+<var>${output}</var>
+<status status="PASS" start="2026-05-13T21:42:56.845048" elapsed="0.102339"/>
+</kw>
+<kw name="Command Should Fail" owner="CommonKeywords">
+<kw name="Should Not Be Equal As Integers" owner="BuiltIn">
+<msg time="2026-05-13T21:42:56.947879" level="INFO">Argument types are:
+&lt;class 'int'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${rc}</arg>
+<arg>0</arg>
+<doc>Fails if objects are equal after converting them to integers.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.947702" elapsed="0.000216"/>
+</kw>
+<arg>${rc}</arg>
+<status status="PASS" start="2026-05-13T21:42:56.947537" elapsed="0.000421"/>
+</kw>
+<kw name="Output Should Contain" owner="CommonKeywords">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${output}</arg>
+<arg>${expected}</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.948299" elapsed="0.000206"/>
+</kw>
+<arg>${output}</arg>
+<arg>Usage: ./run_fleet_test.sh test_01|test_02|test_03</arg>
+<status status="PASS" start="2026-05-13T21:42:56.948130" elapsed="0.000417"/>
+</kw>
+<doc>Negative case: missing argument should fail and print usage.</doc>
+<status status="PASS" start="2026-05-13T21:42:56.844774" elapsed="0.103884"/>
+</test>
+<status status="PASS" start="2026-05-13T21:42:56.843700" elapsed="0.105141"/>
+</suite>
+<status status="PASS" start="2026-05-13T21:42:43.182793" elapsed="13.766427"/>
+</suite>
+<statistics>
+<total>
+<stat pass="3" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="TestCase1 &amp; TestCase2 &amp; TestCase3" id="s1" pass="3" fail="0" skip="0">TestCase1 &amp; TestCase2 &amp; TestCase3</stat>
+<stat name="TestCase1" id="s1-s1" pass="1" fail="0" skip="0">TestCase1 &amp; TestCase2 &amp; TestCase3.TestCase1</stat>
+<stat name="TestCase2" id="s1-s2" pass="1" fail="0" skip="0">TestCase1 &amp; TestCase2 &amp; TestCase3.TestCase2</stat>
+<stat name="TestCase3" id="s1-s3" pass="1" fail="0" skip="0">TestCase1 &amp; TestCase2 &amp; TestCase3.TestCase3</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

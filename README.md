@@ -111,36 +111,52 @@ We run only our module tests (not the full Odoo test suite) using --test-tags.
 
 Run all Fleet tests (8 tests)
 ```bash
-sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
-  --test-tags /fleet_tests \
-  --stop-after-init --no-http --log-level=test
+sudo docker compose exec odoo odoo -d testdb -u fleet_tests --test-tags /fleet_tests --stop-after-init --no-http --log-level=test
 ```
 Run Hospital tests (5 tests)
 ```bash
-sudo docker compose exec odoo odoo -d testdb -u om_hospital \
-  --test-tags /om_hospital \
-  --stop-after-init --no-http --log-level=test
+sudo docker compose exec odoo odoo -d testdb -u om_hospital --test-tags /om_hospital --stop-after-init --no-http --log-level=test
 ```
 
 ### Run individual Fleet test cases
 
 **test_01 — Delete vehicle**
 ```bash
-sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
-  --test-tags /fleet_tests/tests/test_01_vehicle_delete.py:TestVehicleDelete.test_01_vehicle_delete \
-  --stop-after-init --no-http --log-level=test
+./run_fleet_test.sh test_01
 ```
 
 **test_02 — Delete service log**
 ```bash
-sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
-  --test-tags /fleet_tests/tests/test_02_delete_service_log.py:TestDeleteServiceLog.test_02_delete_service_log \
-  --stop-after-init --no-http --log-level=test
+./run_fleet_test.sh test_02
 ```
 
 **test_03 — Update contract log**
 ```bash
-sudo docker compose exec odoo odoo -d testdb -u fleet_tests \
-  --test-tags /fleet_tests/tests/test_03_update_contract_log.py:TestUpdateContractLog.test_03_update_contract_log \
-  --stop-after-init --no-http --log-level=test
+./run_fleet_test.sh test_03
+```
+
+The helper creates an isolated temporary database per test run, so it works even if port `8069` is already used by another container.
+
+You can run these with one short command:
+```bash
+./run_fleet_test.sh test_01
+./run_fleet_test.sh test_02
+./run_fleet_test.sh test_03
+```
+
+### Run Keyword Driven Robot tests
+
+Robot test files are:
+- `robot_tests/TestCase1.robot` (positive)
+- `robot_tests/TestCase2.robot` (negative)
+- `robot_tests/TestCase3.robot` (negative)
+
+Manual command (all 3 test cases):
+```bash
+.venv/bin/robot --outputdir robot_tests/results robot_tests/TestCase1.robot robot_tests/TestCase2.robot robot_tests/TestCase3.robot
+```
+
+If this is your first run, create the virtual environment and install Robot Framework first:
+```bash
+python3 -m venv .venv && .venv/bin/pip install robotframework && .venv/bin/robot --outputdir robot_tests/results robot_tests/TestCase1.robot robot_tests/TestCase2.robot robot_tests/TestCase3.robot
 ```
